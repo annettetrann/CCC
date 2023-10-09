@@ -82,7 +82,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
     print(f'Wholesale catalog: {wholesale_catalog}')
 
-    
+    barrels_to_buy = []    
     request_redBarrel = 0
     request_greenBarrel = 0
     request_blueBarrel = 0
@@ -108,6 +108,12 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     print(f'requesting {request_redBarrel} red barrels: \n\
                           -${barrel.price*request_redBarrel} from {inventory_gold}')
                     inventory_gold -= barrel.price*request_redBarrel
+                    barrels_to_buy.append(
+                        {
+                        "sku": "SMALL_RED_BARREL",
+                        "quantity": request_redBarrel,
+                        }
+                    )
                 
             if(barrel.sku == 'SMALL_GREEN_BARREL'):
                 print("Inventory Green Potions: "+ str(result.num_green_potion))
@@ -117,6 +123,12 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     print(f'requesting {request_greenBarrel} green barrels: \n\
                           -${barrel.price*request_greenBarrel} from {inventory_gold}')
                     inventory_gold -= barrel.price*request_greenBarrel
+                    barrels_to_buy.append(
+                        {
+                            "sku": "SMALL_GREEN_BARREL",
+                            "quantity": request_greenBarrel,
+                        }
+                    )
             
             if(barrel.sku == 'SMALL_BLUE_BARREL'):
                 print("Inventory Blue Potions: "+ str(result.num_blue_potion))
@@ -126,6 +138,12 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     print(f'requesting {request_blueBarrel} green barrels: \n\
                           -${barrel.price*request_blueBarrel} from {inventory_gold}')
                     inventory_gold -= barrel.price*request_blueBarrel
+                    barrels_to_buy.append(
+                        {
+                        "sku": "SMALL_BLUE_BARREL",
+                        "quantity": request_blueBarrel,
+                        }
+                    )
         
 
                 
@@ -136,17 +154,4 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
           {request_greenBarrel} green barrels, \n\
           {request_blueBarrel} blue barrels")
     
-    return [
-        {
-            "sku": "SMALL_RED_BARREL",
-            "quantity": request_redBarrel,
-        },
-        {
-            "sku": "SMALL_GREEN_BARREL",
-            "quantity": request_greenBarrel,
-        },
-        {
-            "sku": "SMALL_BLUE_BARREL",
-            "quantity": request_blueBarrel,
-        }
-    ]
+    return barrels_to_buy

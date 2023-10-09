@@ -9,3 +9,7 @@ info.log
 .DS_Store
 .AppleDouble
 .LSOverride
+
+#others
+.github/workflows/.gitignore
+src/.env

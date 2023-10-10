@@ -46,7 +46,31 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     if (cart_id not in carts):
         carts[cart_id] = {}
     current_cart = carts[cart_id]
-    current_cart[item_sku] = cart_item.quantity 
+
+    
+    with db.engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).one()
+        red_inventory = result.num_red_potion
+        green_inventory = result.num_green_potion
+        blue_inventory = result.num_green_potion
+
+        #check enough inventory, if not enough give max in inventory
+        #check each sku 
+        if (item_sku == "RED_POTION"):
+            if (cart_item.quantity > red_inventory):
+                current_cart[item_sku] = red_inventory
+            else:
+                current_cart[item_sku] = cart_item.quantity 
+        elif (item_sku == "GREEN_POTION"):
+            if (cart_item.quantity > green_inventory):
+                current_cart[item_sku] = green_inventory
+            else:
+                current_cart[item_sku] = cart_item.quantity 
+        elif (item_sku == "BLUE_POTION"):
+            if (cart_item.quantity > blue_inventory):
+                current_cart[item_sku] = blue_inventory
+            else:
+                current_cart[item_sku] = cart_item.quantity 
 
     print(f'Carts: {carts}')   
     return "OK"

@@ -96,15 +96,24 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         print(f"Inventory Gold: {result.gold}")
 
         inventory_gold = result.gold
+        red_budget = inventory_gold//3
+        green_budget = inventory_gold//3
+        blue_budget = inventory_gold//3
+
 
         #if number of red potions is less than 10 and we have enough money , buy a barrel. 
         for barrel in wholesale_catalog:
             print(f'Barrel: {barrel}')
             if(barrel.sku == 'SMALL_RED_BARREL'):
                 print("Inventory Red Potions: "+ str(result.num_red_potion))
-                if ((result.num_red_potion < 10) and (inventory_gold >= barrel.price)):
+                if ((result.num_red_potion < 10) and (red_budget >= barrel.price)):
                     print(f'less than 10 red potions!')
-                    request_redBarrel += 1
+                    request_redBarrel = red_budget//barrel.price
+
+                    #check available quantity in wholesale catalog
+                    if(request_redBarrel > barrel.quantity):
+                        request_redBarrel = barrel.quantity
+
                     print(f'requesting {request_redBarrel} red barrels: \n\
                           -${barrel.price*request_redBarrel} from {inventory_gold}')
                     inventory_gold -= barrel.price*request_redBarrel
@@ -117,9 +126,14 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                 
             if(barrel.sku == 'SMALL_GREEN_BARREL'):
                 print("Inventory Green Potions: "+ str(result.num_green_potion))
-                if ((result.num_green_potion < 10) and (inventory_gold >= barrel.price)):
+                if ((result.num_green_potion < 10) and (green_budget >= barrel.price)):
                     print(f'less than 10 green potions!')
-                    request_greenBarrel += 1
+                    request_greenBarrel = green_budget//barrel.price
+
+                    #check available quantity in wholesale catalog
+                    if(request_greenBarrel > barrel.quantity):
+                        request_greenBarrel = barrel.quantity
+
                     print(f'requesting {request_greenBarrel} green barrels: \n\
                           -${barrel.price*request_greenBarrel} from {inventory_gold}')
                     inventory_gold -= barrel.price*request_greenBarrel
@@ -132,10 +146,14 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             
             if(barrel.sku == 'SMALL_BLUE_BARREL'):
                 print("Inventory Blue Potions: "+ str(result.num_blue_potion))
-                if ((result.num_blue_potion < 10) and (inventory_gold >= barrel.price)):
+                if ((result.num_blue_potion < 10) and (blue_budget >= barrel.price)):
                     print(f'less than 10 blue potions!')
-                    request_blueBarrel += 1
-                    print(f'requesting {request_blueBarrel} green barrels: \n\
+                    request_blueBarrel = blue_budget//barrel.price
+                    #check available quantity in wholesale catalog
+                    if(request_blueBarrel > barrel.quantity):
+                        request_blueBarrel = barrel.quantity
+
+                    print(f'requesting {request_blueBarrel} blue barrels: \n\
                           -${barrel.price*request_blueBarrel} from {inventory_gold}')
                     inventory_gold -= barrel.price*request_blueBarrel
                     request_barrels.append(
@@ -147,7 +165,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         
 
                 
-    #dont update databased because we havent confirmed the purchase
+    #dont update database for gold/barrels because we havent confirmed the purchase
                 
     print(f"Barrel Request: \n\
           {request_redBarrel} red barrels, \n\

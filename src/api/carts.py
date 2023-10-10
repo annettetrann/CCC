@@ -42,11 +42,12 @@ class CartItem(BaseModel):
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
 
     """ """
-    #store all the carts
+    #if cart is not yet created, create it
     if (cart_id not in carts):
         carts[cart_id] = {}
     current_cart = carts[cart_id]
     current_cart[item_sku] = cart_item.quantity 
+
     print(f'Carts: {carts}')   
     return "OK"
 
@@ -63,10 +64,14 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     total_potions_bought = 0
 
     with db.engine.begin() as connection:
-        get_sql = "SELECT gold \
-        FROM global_inventory"
-        result = connection.execute(sqlalchemy.text(get_sql)).one()
+        result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).one()
         print(f"Current Gold: {result.gold}")
+        current_gold = result.gold
+        current_quant_red = result.num_red_potion
+        current_quant_green = result.num_green_potion
+        current_quant_blue = result.num_blue_potion
+
+
 
         for item_sku, quantity in curr_cart.items():
             gold_paid = 0
@@ -75,39 +80,49 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 #update gold
                 gold_paid += (quantity*50) # each potion is $50
                 total_gold_paid += gold_paid
+                current_gold += gold_paid
                 #update num of potions
                 potions_bought += quantity
+                current_quant_red -= quantity
                 total_potions_bought += potions_bought
                 # update database
-                update_sql = "UPDATE global_inventory\
-                        SET num_red_potions = num_red_potions - potions_bought\
-                        gold = gold + {gold_paid}"
+                update_sql = f"UPDATE global_inventory\
+                        SET num_red_potion = {current_quant_red},\
+                            gold = {current_gold}"
             elif item_sku == "GREEN_POTION":
                 #update gold
                 gold_paid += (quantity*50) # each potion is $50
                 total_gold_paid += gold_paid
+                current_gold += gold_paid
                 #update num of potions
                 potions_bought += quantity
                 total_potions_bought += potions_bought
+                current_quant_green -= quantity
                 # update database
-                update_sql = "UPDATE global_inventory\
-                        SET num_green_potions = num_green_potions - potions_bought\
-                        gold = gold + {gold_paid}"
+                update_sql = f"UPDATE global_inventory\
+                        SET num_green_potion = {current_quant_green},\
+                            gold = {current_gold}"
             elif item_sku == "BLUE_POTION":
                 #update gold
                 gold_paid += (quantity*50) # each potion is $50
                 total_gold_paid += gold_paid
+                current_gold += gold_paid
                 #update num of potions
                 potions_bought += quantity
                 total_potions_bought += potions_bought
+                current_quant_blue -= quantity
                 # update database
-                update_sql = "UPDATE global_inventory\
-                        SET num_blue_potions = num_blue_potions - potions_bought\
-                        gold = gold + {gold_paid}"
+                update_sql = f"UPDATE global_inventory\
+                        SET num_blue_potion = {current_quant_blue},\
+                            gold = {current_gold}"
                 
+            
+            connection.execute(sqlalchemy.text(update_sql))
             print(f'Bought {potions_bought} {item_sku}, \n\
                       total = {gold_paid}')
             
+        result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).one()
+        print(f"Current Gold: {result.gold}")
         
     print(f'total_potions_bought: {total_potions_bought}, total_gold_paid: {total_gold_paid}')
     return {"total_potions_bought": total_potions_bought, "total_gold_paid": total_gold_paid}

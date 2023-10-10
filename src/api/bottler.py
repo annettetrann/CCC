@@ -122,6 +122,7 @@ def get_bottle_plan():
     # Expressed in integers from 1 to 100 that must sum up to 100.
 
     # Initial logic: bottle all barrels into red potions.
+    request_potions = []
     with db.engine.begin() as connection:
         result = connection.execute(sqlalchemy.text("SELECT *\
                                                               FROM global_inventory")).one()
@@ -132,25 +133,35 @@ def get_bottle_plan():
 
         #each potion bottle contains 100ml
         request_red_potions = inventory_red_ml//100
+        if (request_red_potions >= 1):
+            request_potions.append(
+                {
+                "potion_type": [100, 0, 0, 0],
+                "quantity": request_red_potions
+                }
+            )
+
         request_green_potions = inventory_green_ml//100
+        if (request_green_potions >= 1):
+            request_potions.append(
+                {
+                "potion_type": [0, 100, 0, 0],
+                "quantity": request_green_potions
+                }
+            )
+
         request_blue_potions = inventory_blue_ml//100
+        if (request_blue_potions >= 1):
+            request_potions.append(
+                {
+                "potion_type": [0, 0, 100, 0],
+                "quantity": request_blue_potions
+                }
+            )
 
         print(f'Bottler Request: \n\
               {request_red_potions} red potions\n\
               {request_green_potions} green potions\n\
               {request_blue_potions} blue potions')
 
-    return [
-            {
-                "potion_type": [100, 0, 0, 0],
-                "quantity": request_red_potions
-            },
-            {
-                "potion_type": [0, 100, 0, 0],
-                "quantity": request_green_potions
-            },
-            {
-                "potion_type": [0, 0, 100, 0],
-                "quantity": request_blue_potions
-            }
-        ]
+    return request_potions

@@ -87,6 +87,8 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     request_greenBarrel = 0
     request_blueBarrel = 0
 
+
+
     #check available barrels available!
     
     with db.engine.begin() as connection:
@@ -99,6 +101,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         red_budget = inventory_gold//3
         green_budget = inventory_gold//3
         blue_budget = inventory_gold//3
+
 
 
         #if number of red potions is less than 10 and we have enough money , buy a barrel. 
@@ -120,7 +123,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     request_barrels.append(
                         {
                         "sku": "SMALL_RED_BARREL",
-                        "quantity": request_redBarrel,
+                        "quantity": request_redBarrel
                         }
                     )
                 
@@ -140,7 +143,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     request_barrels.append(
                         {
                             "sku": "SMALL_GREEN_BARREL",
-                            "quantity": request_greenBarrel,
+                            "quantity": request_greenBarrel
                         }
                     )
             
@@ -159,17 +162,31 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     request_barrels.append(
                         {
                         "sku": "SMALL_BLUE_BARREL",
-                        "quantity": request_blueBarrel,
+                        "quantity": request_blueBarrel
                         }
                     )
-        
+        #if no barrels are requested, just iterate through the list and buy anything 
+        if (len(request_barrels) == 0):
+            print(f'Barrel size: {len(request_barrels)}')
+            for barrel in wholesale_catalog:
+                if barrel.price <= inventory_gold:
+                    request_barrels.append(
+                        {
+                            "sku": barrel.sku,
+                            "quantity": 1
+                        }
+                    )
+                    inventory_gold -= barrel.price
+
+
 
                 
     #dont update database for gold/barrels because we havent confirmed the purchase
                 
-    print(f"Barrel Request: \n\
-          {request_redBarrel} red barrels, \n\
-          {request_greenBarrel} green barrels, \n\
-          {request_blueBarrel} blue barrels")
+    # print(f"Barrel Request: \n\
+    #       {request_redBarrel} red barrels, \n\
+    #       {request_greenBarrel} green barrels, \n\
+    #       {request_blueBarrel} blue barrels")
+    print(f'Requesting Barrels: {request_barrels}')
     
     return request_barrels

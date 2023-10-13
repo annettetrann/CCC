@@ -32,6 +32,9 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
         #add new amount of red potion to current inventory & update gold used
         total_gold = result.gold
         print(f'Inventory gold = {total_gold}')
+        total_red_ml = result.num_red_ml
+        total_green_ml = result.num_green_ml
+        total_blue_ml = result.num_blue_ml
 
         for barrel in barrels_delivered:
             print(f'Barrels Delivered: {barrel}')

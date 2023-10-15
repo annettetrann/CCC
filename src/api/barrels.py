@@ -23,56 +23,49 @@ class Barrel(BaseModel):
 def post_deliver_barrels(barrels_delivered: list[Barrel]):
     """ """
     print("BARREL DELIVERY: ")
+    #initalize all new values 
+    added_red_ml = 0
+    added_green_ml = 0
+    added_blue_ml = 0
+    gold_paid = 0
 
-    with db.engine.begin() as connection:
-        #returns an array I am trying to update
-        result = connection.execute(sqlalchemy.text("SELECT *\
-                                                              FROM global_inventory")).one()
+    for barrel in barrels_delivered:
+        print(f'Barrels Delivered: {barrel}')
+        print(f'Puchased {barrel.quantity} of {barrel.sku}({barrel.ml_per_barrel}ml)')
 
-        #add new amount of red potion to current inventory & update gold used
-        total_gold = result.gold
-        print(f'Inventory gold = {total_gold}')
-        total_red_ml = result.num_red_ml
-        total_green_ml = result.num_green_ml
-        total_blue_ml = result.num_blue_ml
+        gold_paid += barrel.quantity*barrel.price
 
-        for barrel in barrels_delivered:
-            print(f'Barrels Delivered: {barrel}')
-            print(f'Puchased {barrel.quantity} of {barrel.sku}({barrel.ml_per_barrel}ml)')
-            if (barrel.sku == "SMALL_RED_BARREL"):
-                total_red_ml = result.num_red_ml + (barrel.quantity*barrel.ml_per_barrel)
-                print(f'Total red ml added: {(barrel.quantity*barrel.ml_per_barrel)}')
-                print(f'Updated total red_ml available now: {total_red_ml}')
-
-                total_gold -= barrel.quantity*barrel.price
-                print(f'Total purchase price: {barrel.quantity*barrel.price},\
-                      Updated gold = {total_gold}')
-                
-            if (barrel.sku == "SMALL_GREEN_BARREL"): 
-                total_green_ml = result.num_green_ml + (barrel.quantity*barrel.ml_per_barrel)
-                print(f'Total green ml added: {(barrel.quantity*barrel.ml_per_barrel)}')
-                print(f'Updated total green_ml available now: {total_green_ml}')
-
-                total_gold -= barrel.quantity*barrel.price
-                print(f'Total purchase price: {barrel.quantity*barrel.price},\
-                      Updated gold = {total_gold}')
-            if (barrel.sku == "SMALL_BLUE_BARREL"):
-                total_blue_ml = result.num_blue_ml + (barrel.quantity*barrel.ml_per_barrel)
-                print(f'Total blue ml added: {(barrel.quantity*barrel.ml_per_barrel)}')
-                print(f'Updated total green_ml available now: {total_blue_ml}')
-
-                total_gold -= barrel.quantity*barrel.price
-                print(f'Total purchase price: {barrel.quantity*barrel.price},\
-                      Updated gold = {total_gold}')
+        if (barrel.potion_type == [1, 0, 0, 0]): #red
+            added_red_ml += barrel.quantity*barrel.ml_per_barrel
+            print(f'Adding {added_red_ml}ml of red')
+        elif (barrel.potion_type == [0, 1, 0, 0]): #green
+            added_green_ml += barrel.quantity*barrel.ml_per_barrel
+            print(f'Adding {added_green_ml}ml of green')
+        elif (barrel.potion_type == [0, 0, 1, 0]): #blue
+            added_blue_ml += barrel.quantity*barrel.ml_per_barrel
+            print(f'Adding {added_blue_ml}ml of blue')
+        # elif(barrel.potion_type == [0, 0, 0, 1]): #dark
+        #     added_dark_ml += barrel.quantity*barrel.ml_per_barrel
+        else:
+            raise Exception("Invalid Potion Type")
     
-        #update db with upated values
-        update_sql = f'UPDATE global_inventory\
-                                           SET num_red_ml = {total_red_ml},\
-                                            num_green_ml = {total_green_ml},\
-                                            num_blue_ml = {total_blue_ml},\
-                                            gold = {total_gold}'
-        
-        connection.execute(sqlalchemy.text(update_sql))
+    #print the total of newly added liquids 
+    print(f"Barrel Delivery Calculated:\
+          Added Red ml : {added_red_ml},\
+          Added Green ml : {added_green_ml},\
+          Added Blue ml : {added_blue_ml},\
+          Gold Paid : {gold_paid}")
+    
+    #update database
+    with db.engine.begin() as connection:
+        update_sql = """UPDATE global_inventory
+                        SET num_red_ml = num_red_ml + :added_red_ml,
+                        num_green_ml = num_green_ml + :added_green_ml,
+                        num_blue_ml = num_blue_ml + :added_blue_ml,
+                        gold = gold - :gold_paid"""
+    
+        connection.execute(sqlalchemy.text(update_sql), 
+            [{"added_red_ml": added_red_ml, "added_green_ml": added_green_ml, "added_blue_ml": added_blue_ml, "gold_paid": gold_paid}])
 
 
     return "OK"
@@ -85,111 +78,96 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
     print(f'Wholesale catalog: {wholesale_catalog}')
 
-    request_barrels = []    
-    request_redBarrel = 0
-    request_greenBarrel = 0
-    request_blueBarrel = 0
+    sorted_catalog = sort_barrels(wholesale_catalog)
+    #print(f"Sorted Catalog: {sorted_catalog}")
 
-
-
-    #check available barrels available!
+    request_barrels = []
     
     with db.engine.begin() as connection:
-        get_sql = "SELECT * \
-        FROM global_inventory"
-        result = connection.execute(sqlalchemy.text(get_sql)).one()
-        print(f"Inventory Gold: {result.gold}")
+        result = connection.execute(sqlalchemy.text("""SELECT *
+                                                    FROM global_inventory""")).one()
+    print(f"Inventory Gold: {result.gold}")
+    # print(f"Inventory Red Potions: {result.num_red_potion}")
+    # print(f"Inventory Green Potions: {result.num_green_potion}")
+    # print(f"Inventory Blue Potions: {result.num_blue_potion}")
 
-        inventory_gold = result.gold
-        red_budget = inventory_gold//3
-        green_budget = inventory_gold//3
-        blue_budget = inventory_gold//3
+    inventory_gold = result.gold
 
+    #create a tuple of (potion_type, color_ml)
+    red_inventory = ("red", [100, 0 , 0, 0], result.num_red_potion)
+    green_inventory = ("green", [0, 100 , 0, 0], result.num_green_potion)
+    blue_inventory = ("blue", [0, 0 , 100, 0], result.num_blue_potion)
+    priority = [red_inventory, green_inventory, blue_inventory]
 
+    #print(f"Priority: {priority}")
+    priority.sort(key=sort_third)
+    print(f"Sorted Priority: {priority}")
 
-        #if number of red potions is less than 10 and we have enough money , buy a barrel. 
-        for barrel in wholesale_catalog:
-            print(f'Barrel: {barrel}')
-            if(barrel.sku == 'SMALL_RED_BARREL'):
-                print("Inventory Red Potions: "+ str(result.num_red_potion))
-                if ((result.num_red_potion < 10) and (red_budget >= barrel.price)):
-                    print(f'less than 10 red potions!')
-                    request_redBarrel = red_budget//barrel.price
+    #start buying barrels
+    for i in range(len(priority)):
+        potion_color_str = priority[i][0]
+        potion_inventory = priority[i][2]
+        print(f"Current Priority: {potion_color_str} ({i}), Inventory = {potion_inventory} potions")
+        
+        #make sure those potions exist & availale to purchase
+        if potion_color_str not in sorted_catalog:
+            print(f"Wanted to buy some {potion_color_str} barrels, but there are none for sale at this time :(")
+            continue #just move onto the next potion type
 
-                    #check available quantity in wholesale catalog
-                    if(request_redBarrel > barrel.quantity):
-                        request_redBarrel = barrel.quantity
+        select_catalog = sorted_catalog[potion_color_str]
+        #print(f'Select Catalog: {select_catalog}')
 
-                    print(f'requesting {request_redBarrel} red barrels: \n\
-                          -${barrel.price*request_redBarrel} from {inventory_gold}')
-                    inventory_gold -= barrel.price*request_redBarrel
-                    request_barrels.append(
-                        {
-                        "sku": "SMALL_RED_BARREL",
-                        "quantity": request_redBarrel
-                        }
-                    )
-                
-            if(barrel.sku == 'SMALL_GREEN_BARREL'):
-                print("Inventory Green Potions: "+ str(result.num_green_potion))
-                if ((result.num_green_potion < 10) and (green_budget >= barrel.price)):
-                    print(f'less than 10 green potions!')
-                    request_greenBarrel = green_budget//barrel.price
+        current_request, inventory_gold = balance_requests(i, select_catalog, inventory_gold)
+        request_barrels.extend(current_request)
+        print(f"Requesting {request_barrels}")
+        print(f"Inventory Gold: {inventory_gold}")
 
-                    #check available quantity in wholesale catalog
-                    if(request_greenBarrel > barrel.quantity):
-                        request_greenBarrel = barrel.quantity
-
-                    print(f'requesting {request_greenBarrel} green barrels: \n\
-                          -${barrel.price*request_greenBarrel} from {inventory_gold}')
-                    inventory_gold -= barrel.price*request_greenBarrel
-                    request_barrels.append(
-                        {
-                            "sku": "SMALL_GREEN_BARREL",
-                            "quantity": request_greenBarrel
-                        }
-                    )
-            
-            if(barrel.sku == 'SMALL_BLUE_BARREL'):
-                print("Inventory Blue Potions: "+ str(result.num_blue_potion))
-                if ((result.num_blue_potion < 10) and (blue_budget >= barrel.price)):
-                    print(f'less than 10 blue potions!')
-                    request_blueBarrel = blue_budget//barrel.price
-                    #check available quantity in wholesale catalog
-                    if(request_blueBarrel > barrel.quantity):
-                        request_blueBarrel = barrel.quantity
-
-                    print(f'requesting {request_blueBarrel} blue barrels: \n\
-                          -${barrel.price*request_blueBarrel} from {inventory_gold}')
-                    inventory_gold -= barrel.price*request_blueBarrel
-                    request_barrels.append(
-                        {
-                        "sku": "SMALL_BLUE_BARREL",
-                        "quantity": request_blueBarrel
-                        }
-                    )
-        #if no barrels are requested, just iterate through the list and buy anything 
-        if (len(request_barrels) == 0):
-            print(f'Barrel size: {len(request_barrels)}')
-            for barrel in wholesale_catalog:
-                if barrel.price <= inventory_gold:
-                    request_barrels.append(
-                        {
-                            "sku": barrel.sku,
-                            "quantity": 1
-                        }
-                    )
-                    inventory_gold -= barrel.price
-
-
-
-                
-    #dont update database for gold/barrels because we havent confirmed the purchase
-                
-    # print(f"Barrel Request: \n\
-    #       {request_redBarrel} red barrels, \n\
-    #       {request_greenBarrel} green barrels, \n\
-    #       {request_blueBarrel} blue barrels")
-    print(f'Requesting Barrels: {request_barrels}')
+    print(f'Requesting Barrels: \n{request_barrels}')
     
     return request_barrels
+
+#current purchasing logic: maximize purchase of top priority
+def balance_requests(priority, select_catalog, inventory_gold):
+    request = []
+    request_quantity = 0
+    for barrel in select_catalog:
+        #usually first items are largest available to smallest
+        request_quantity = inventory_gold//barrel.price
+        if request_quantity > barrel.quantity: #if request is more than wholesale quant
+            request_quantity = barrel.quantity # request max
+        if request_quantity > 0: # add the request if exists
+            request.append(
+                {"sku": barrel.sku,
+                 "quantity": request_quantity}
+                 )
+            inventory_gold -= (request_quantity*barrel.price)
+    
+    return request, inventory_gold
+        
+
+def sort_third(ls):
+    return ls[2]
+
+def sort_barrels(wholesale_catalog: list[Barrel]):
+    sorted_catalog = {}
+    for barrel in wholesale_catalog:
+        if (barrel.potion_type == [1, 0, 0, 0]):
+            if ("red" not in sorted_catalog):
+                sorted_catalog["red"] = [barrel]
+            else:
+                sorted_catalog["red"].append(barrel)
+
+        elif (barrel.potion_type == [0, 1, 0, 0]):
+            if ("green" not in sorted_catalog):
+                sorted_catalog["green"] = [barrel]
+            else:
+                sorted_catalog["green"].append(barrel)
+        elif (barrel.potion_type == [0, 0, 1, 0]):
+            if ("blue" not in sorted_catalog):
+                sorted_catalog["blue"] = [barrel]
+            else:
+                sorted_catalog["blue"].append(barrel)
+        else:
+            raise Exception("Undefined Potion Type")
+    
+    return sorted_catalog

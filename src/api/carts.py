@@ -30,7 +30,6 @@ def create_cart(new_cart: NewCart):
 @router.get("/{cart_id}")
 def get_cart(cart_id: int):
     """ """
-
     return {}
 
 
@@ -50,27 +49,28 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     
     with db.engine.begin() as connection:
         result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).one()
-        red_inventory = result.num_red_potion
-        green_inventory = result.num_green_potion
-        blue_inventory = result.num_blue_potion
 
-        #check enough inventory, if not enough give max in inventory
-        #check each sku 
-        if (item_sku == "RED_POTION"):
-            if (cart_item.quantity > red_inventory):
-                current_cart[item_sku] = red_inventory
-            else:
-                current_cart[item_sku] = cart_item.quantity 
-        elif (item_sku == "GREEN_POTION"):
-            if (cart_item.quantity > green_inventory):
-                current_cart[item_sku] = green_inventory
-            else:
-                current_cart[item_sku] = cart_item.quantity 
-        elif (item_sku == "BLUE_POTION"):
-            if (cart_item.quantity > blue_inventory):
-                current_cart[item_sku] = blue_inventory
-            else:
-                current_cart[item_sku] = cart_item.quantity 
+    red_inventory = result.num_red_potion
+    green_inventory = result.num_green_potion
+    blue_inventory = result.num_blue_potion
+
+    #check enough inventory, if not enough give max in inventory
+    #check each sku 
+    if (item_sku == "RED_POTION"):
+        if (cart_item.quantity > red_inventory):
+            current_cart[item_sku] = red_inventory
+        else:
+            current_cart[item_sku] = cart_item.quantity 
+    elif (item_sku == "GREEN_POTION"):
+        if (cart_item.quantity > green_inventory):
+            current_cart[item_sku] = green_inventory
+        else:
+            current_cart[item_sku] = cart_item.quantity 
+    elif (item_sku == "BLUE_POTION"):
+        if (cart_item.quantity > blue_inventory):
+            current_cart[item_sku] = blue_inventory
+        else:
+            current_cart[item_sku] = cart_item.quantity 
 
     print(f'Carts: {carts}')   
     return "OK"
@@ -82,88 +82,50 @@ class CartCheckout(BaseModel):
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
-
     curr_cart = carts[cart_id]
     total_gold_paid = 0
-    total_potions_bought = 0
+    total_red_potions_bought = 0
+    total_green_potions_bought = 0
+    total_blue_potions_bought = 0
 
     with db.engine.begin() as connection:
         result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).one()
-        #print(f"Current Gold: {result.gold}")
-        current_gold = result.gold
         current_quant_red = result.num_red_potion
         current_quant_green = result.num_green_potion
         current_quant_blue = result.num_blue_potion
 
-
-
-        for item_sku, quantity in curr_cart.items():
-            gold_paid = 0
-            potions_bought = 0
-            if quantity > 0:
-
-                if item_sku == "RED_POTION":
-                    #update gold
-                    gold_paid += (quantity*50) # each potion is $50
-                    total_gold_paid += gold_paid
-                    current_gold += gold_paid
-                    #update num of potions
-
-                    #only sell available potions
-                    if (quantity > current_quant_red):
-                        quantity = current_quant_red
-
-                    potions_bought += quantity
-                    current_quant_red -= quantity
-                    total_potions_bought += potions_bought
-                    # update database
-                    update_sql = f"UPDATE global_inventory\
-                            SET num_red_potion = {current_quant_red},\
-                                gold = {current_gold}"
-                elif item_sku == "GREEN_POTION":
-                    #update gold
-                    gold_paid += (quantity*50) # each potion is $50
-                    total_gold_paid += gold_paid
-                    current_gold += gold_paid
-                    #update num of potions
-
-                    #only sell available potions
-                    if (quantity > current_quant_green):
-                        quantity = current_quant_green
-
-                    potions_bought += quantity
-                    total_potions_bought += potions_bought
-                    current_quant_green -= quantity
-                    # update database
-                    update_sql = f"UPDATE global_inventory\
-                            SET num_green_potion = {current_quant_green},\
-                                gold = {current_gold}"
-                elif item_sku == "BLUE_POTION":
-                    #update gold
-                    gold_paid += (quantity*50) # each potion is $50
-                    total_gold_paid += gold_paid
-                    current_gold += gold_paid
-
-                    #only sell available potions
-                    if (quantity > current_quant_blue):
-                        quantity = current_quant_blue
-
-                    #update num of potions
-                    potions_bought += quantity
-                    total_potions_bought += potions_bought
-                    current_quant_blue -= quantity
-                    # update database
-                    update_sql = f"UPDATE global_inventory\
-                            SET num_blue_potion = {current_quant_blue},\
-                                gold = {current_gold}"
-                    
+    for item_sku, quantity in curr_cart.items():
+        if quantity > 0:
+            if item_sku == "RED_POTION":
+                if (quantity > current_quant_red):
+                    quantity = current_quant_red
+                total_red_potions_bought += quantity
+            elif item_sku == "GREEN_POTION":
+                if (quantity > current_quant_green):
+                    quantity = current_quant_green
+                total_green_potions_bought += quantity
+            elif item_sku == "BLUE_POTION":
+                if (quantity > current_quant_blue):
+                    quantity = current_quant_blue
+                total_blue_potions_bought += quantity
+            total_gold_paid += (quantity*50) # each potion is $50
+    
                 
-                connection.execute(sqlalchemy.text(update_sql))
-                print(f'Bought {potions_bought} {item_sku}, \n\
-                        total = {gold_paid}')
-            
-        result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).one()
-        print(f"Current Gold: {result.gold}")
-        
-    print(f'total_potions_bought: {total_potions_bought}, total_gold_paid: {total_gold_paid}')
-    return {"total_potions_bought": total_potions_bought, "total_gold_paid": total_gold_paid}
+    with db.engine.begin() as connection:
+        update_sql = """UPDATE global_inventory
+                        SET num_red_potion = num_red_potion - :total_red_potions_bought,
+                        num_green_potion = num_green_potion - :total_green_potions_bought,
+                        num_blue_potion = num_blue_potion - :total_blue_potions_bought,
+                        gold = gold + :total_gold_paid"""
+        connection.execute(sqlalchemy.text(update_sql), 
+                        [{"total_red_potions_bought": total_red_potions_bought, 
+                            "total_green_potions_bought": total_green_potions_bought,
+                            "total_blue_potions_bought": total_blue_potions_bought,
+                            "total_gold_paid": total_gold_paid}])
+    print(f"Checkout for {cart_id}:\
+          {total_red_potions_bought} red potions,\
+          {total_green_potions_bought} green potions,\
+          {total_blue_potions_bought} blue potions,\
+          total gold paid = {total_gold_paid}")
+    
+    return "OK"

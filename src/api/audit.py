@@ -20,14 +20,12 @@ def get_inventory():
         FROM global_inventory'
 
         result = connection.execute(sqlalchemy.text(get_sql)).one()
-    
-        return {"num_red_potion": result.num_red_potion, 
-                "num_red_ml": result.num_red_ml,
-                "num_green_potion": result.num_green_potion, 
-                "num_green_ml": result.num_green_ml,
-                "num_blue_potion": result.num_blue_potion, 
-                "num_blue_ml": result.num_blue_ml,
-                "gold": result.gold}
+
+        num_potions = result.num_red_potion + result.num_green_potion + result.num_blue_potion
+        num_barrel_ml = result.num_red_ml + result.num_green_ml + result.num_blue_ml
+        gold = result.gold
+        
+    return {"number_of_potions": num_potions, "ml_in_barrels": num_barrel_ml, "gold": gold}
 
 class Result(BaseModel):
     gold_match: bool

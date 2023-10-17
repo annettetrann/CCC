@@ -95,10 +95,10 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     inventory_gold = result.gold
 
     #create a tuple of (potion_type, color_ml)
-    red_inventory = ("red", [100, 0 , 0, 0], result.num_red_potion)
-    green_inventory = ("green", [0, 100 , 0, 0], result.num_green_potion)
-    blue_inventory = ("blue", [0, 0 , 100, 0], result.num_blue_potion)
-    dark_inventory = ("dark", [0, 0 , 0, 100], result.num_dark_potion) #add in dark potion
+    red_inventory = ("red", [100, 0 , 0, 0], result.num_red_ml)
+    green_inventory = ("green", [0, 100 , 0, 0], result.num_green_ml)
+    blue_inventory = ("blue", [0, 0 , 100, 0], result.num_blue_ml)
+    dark_inventory = ("dark", [0, 0 , 0, 100], result.num_dark_ml) #add in dark potion
     priority = [red_inventory, green_inventory, blue_inventory, dark_inventory]
 
     #create a priority list based on which potions are least stocked

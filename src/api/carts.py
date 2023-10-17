@@ -28,7 +28,7 @@ def create_cart(new_cart: NewCart):
                         VALUES (:name)
                         RETURNING cart_id"""
     with db.engine.begin() as connection:
-        cart_id = connection.execute(sqlalchemy.text(new_cart_sql), [{"name": new_cart.customer}])
+        cart_id = connection.execute(sqlalchemy.text(new_cart_sql), [{"name": new_cart.customer}]).scalar_one()
     print(f"Cart_ID added: {cart_id}")
     return {"cart_id": cart_id}
 

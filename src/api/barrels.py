@@ -27,6 +27,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
     added_red_ml = 0
     added_green_ml = 0
     added_blue_ml = 0
+    added_dark_ml = 0
     gold_paid = 0
 
     for barrel in barrels_delivered:
@@ -44,16 +45,18 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
         elif (barrel.potion_type == [0, 0, 1, 0]): #blue
             added_blue_ml += barrel.quantity*barrel.ml_per_barrel
             print(f'Adding {added_blue_ml}ml of blue')
-        # elif(barrel.potion_type == [0, 0, 0, 1]): #dark
-        #     added_dark_ml += barrel.quantity*barrel.ml_per_barrel
+        elif(barrel.potion_type == [0, 0, 0, 1]): #dark
+            added_dark_ml += barrel.quantity*barrel.ml_per_barrel
+            print(f'Adding {added_dark_ml}ml of dark')
         else:
             raise Exception("Invalid Potion Type")
     
     #print the total of newly added liquids 
-    print(f"Barrel Delivery Calculated:\
+    print(f"Barrel Delivery Summary:\
           Added Red ml : {added_red_ml},\
           Added Green ml : {added_green_ml},\
           Added Blue ml : {added_blue_ml},\
+          Added Dark ml : {added_dark_ml},\
           Gold Paid : {gold_paid}")
     
     #update database
@@ -62,10 +65,11 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
                         SET num_red_ml = num_red_ml + :added_red_ml,
                         num_green_ml = num_green_ml + :added_green_ml,
                         num_blue_ml = num_blue_ml + :added_blue_ml,
+                        num_dark_ml = num_dark_ml + :added_dark_ml,
                         gold = gold - :gold_paid"""
     
         connection.execute(sqlalchemy.text(update_sql), 
-            [{"added_red_ml": added_red_ml, "added_green_ml": added_green_ml, "added_blue_ml": added_blue_ml, "gold_paid": gold_paid}])
+            [{"added_red_ml": added_red_ml, "added_green_ml": added_green_ml, "added_blue_ml": added_blue_ml, "added_dark_ml": added_dark_ml, "gold_paid": gold_paid}])
 
 
     return "OK"
@@ -87,9 +91,6 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         result = connection.execute(sqlalchemy.text("""SELECT *
                                                     FROM global_inventory""")).one()
     print(f"Inventory Gold: {result.gold}")
-    # print(f"Inventory Red Potions: {result.num_red_potion}")
-    # print(f"Inventory Green Potions: {result.num_green_potion}")
-    # print(f"Inventory Blue Potions: {result.num_blue_potion}")
 
     inventory_gold = result.gold
 
@@ -97,9 +98,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     red_inventory = ("red", [100, 0 , 0, 0], result.num_red_potion)
     green_inventory = ("green", [0, 100 , 0, 0], result.num_green_potion)
     blue_inventory = ("blue", [0, 0 , 100, 0], result.num_blue_potion)
-    priority = [red_inventory, green_inventory, blue_inventory]
+    dark_inventory = ("dark", [0, 0 , 0, 100], result.num_dark_potion) #add in dark potion
+    priority = [red_inventory, green_inventory, blue_inventory, dark_inventory]
 
-    #print(f"Priority: {priority}")
+    #create a priority list based on which potions are least stocked
+    #CHANGE TO: least stocked ml
     priority.sort(key=sort_third)
     print(f"Sorted Priority: {priority}")
 
@@ -117,7 +120,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         select_catalog = sorted_catalog[potion_color_str]
         #print(f'Select Catalog: {select_catalog}')
 
-        current_request, inventory_gold = balance_requests(i, select_catalog, inventory_gold)
+        current_request, inventory_gold = balance_requests(select_catalog, inventory_gold)
         request_barrels.extend(current_request)
         print(f"Requesting {request_barrels}")
         print(f"Inventory Gold: {inventory_gold}")
@@ -127,7 +130,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     return request_barrels
 
 #current purchasing logic: maximize purchase of top priority
-def balance_requests(priority, select_catalog, inventory_gold):
+def balance_requests(select_catalog, inventory_gold):
     request = []
     request_quantity = 0
     for barrel in select_catalog:
@@ -167,6 +170,11 @@ def sort_barrels(wholesale_catalog: list[Barrel]):
                 sorted_catalog["blue"] = [barrel]
             else:
                 sorted_catalog["blue"].append(barrel)
+        elif (barrel.potion_type == [0, 0, 0, 1]):
+            if ("dark" not in sorted_catalog):
+                sorted_catalog["dark"] = [barrel]
+            else:
+                sorted_catalog["dark"].append(barrel)
         else:
             raise Exception("Undefined Potion Type")
     

@@ -16,14 +16,21 @@ def get_inventory():
     """ """
     with db.engine.begin() as connection:
 
-        get_sql = f'SELECT *\
-        FROM global_inventory'
+        sql_global = f'SELECT *\
+            FROM global_inventory'
+        get_global = connection.execute(sqlalchemy.text(sql_global)).one()
+        
+        #get number of potions
+        num_potions = 0
+        sql_potions = f'SELECT quantity\
+                    FROM potion_catalog'
+        potions = connection.execute(sqlalchemy.text(sql_potions)).all()
+        print(f"Potions: {potions}")
 
-        result = connection.execute(sqlalchemy.text(get_sql)).one()
-
-        num_potions = result.num_red_potion + result.num_green_potion + result.num_blue_potion
-        num_barrel_ml = result.num_red_ml + result.num_green_ml + result.num_blue_ml
-        gold = result.gold
+        for potions in potions:
+            num_potions += potions.quantity
+        num_barrel_ml = get_global.num_red_ml + get_global.num_green_ml + get_global.num_blue_ml + get_global.num_dark_ml
+        gold = get_global.gold
         
     return {"number_of_potions": num_potions, "ml_in_barrels": num_barrel_ml, "gold": gold}
 

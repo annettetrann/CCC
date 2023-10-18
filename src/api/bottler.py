@@ -94,7 +94,8 @@ def get_bottle_plan():
             if(potion.dark > 0):
                 max_create.append(inventory_dark_ml//potion.dark)
 
-            #the most we can create is the amount we can handle
+            #the most we can create is the amount we can handle OR max = 100
+            max_create.append(100)
             request_num = min(max_create)
 
             if request_num > 0:

@@ -110,7 +110,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     for i in range(len(priority)):
         potion_color_str = priority[i][0]
         potion_inventory = priority[i][2]
-        print(f"Current Priority: {potion_color_str} ({i}), Inventory = {potion_inventory} potions")
+        print(f"Current Priority: {potion_color_str} ({i}), Inventory = {potion_inventory} ml")
         
         #make sure those potions exist & availale to purchase
         if potion_color_str not in sorted_catalog:
@@ -120,7 +120,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         select_catalog = sorted_catalog[potion_color_str]
         #print(f'Select Catalog: {select_catalog}')
 
-        current_request, inventory_gold = balance_requests(select_catalog, inventory_gold)
+        current_request, inventory_gold = balance_requests(priority[i], select_catalog, inventory_gold)
         request_barrels.extend(current_request)
         print(f"Requesting {request_barrels}")
         print(f"Inventory Gold: {inventory_gold}")
@@ -130,20 +130,29 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     return request_barrels
 
 #current purchasing logic: maximize purchase of top priority
-def balance_requests(select_catalog, inventory_gold):
+def balance_requests(current_priority, select_catalog, inventory_gold):
     request = []
     request_quantity = 0
+    total_request_ml = 0
+    current_ml_in_barrel = current_priority[2]
+    max_inventory_ml = 2500 - current_ml_in_barrel
     for barrel in select_catalog:
         #usually first items are largest available to smallest
-        request_quantity = inventory_gold//barrel.price
-        if request_quantity > barrel.quantity: #if request is more than wholesale quant
-            request_quantity = barrel.quantity # request max
+        safe_request = []
+        safe_request.append(barrel.quantity) #the max amount of barrels available
+        safe_request.append(inventory_gold//barrel.price) #the max barrels we can purchase
+        safe_request.append(max_inventory_ml//barrel.ml_per_barrel) #max mls reached
+        request_quantity = min(safe_request) #the lowest we can purchase
+
         if request_quantity > 0: # add the request if exists
             request.append(
                 {"sku": barrel.sku,
                  "quantity": request_quantity}
                  )
+            #update inventory_ml
             inventory_gold -= (request_quantity*barrel.price)
+            total_request_ml += request_quantity*barrel.ml_per_barrel
+            max_inventory_ml -= total_request_ml
     
     return request, inventory_gold
         

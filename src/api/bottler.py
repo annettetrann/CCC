@@ -83,6 +83,7 @@ def get_bottle_plan():
             if (potion.red > inventory_red_ml) or (potion.green > inventory_green_ml) or (potion.blue > inventory_blue_ml) or (potion.dark > inventory_dark_ml):
                 print(f"Tried to make {potion.sku}, but there was not enough inventory to make at least 1")
                 continue
+
             #there is enough to make just 1 
             max_create = []
             if (potion.red > 0):
@@ -94,8 +95,9 @@ def get_bottle_plan():
             if(potion.dark > 0):
                 max_create.append(inventory_dark_ml//potion.dark)
 
-            #the most we can create is the amount we can handle OR max = 100
-            max_create.append(75)
+            #the most we can create is the amount we can handle OR max = 75
+            max_potions_inventory = 138 - potion.quantity
+            max_create.append(max_potions_inventory)
             request_num = min(max_create)
 
             if request_num > 0:
@@ -114,5 +116,4 @@ def get_bottle_plan():
                     }
                 )
             print(f"-> requesting {request_num} {potion.sku}")
-
     return request_potions

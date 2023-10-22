@@ -88,17 +88,41 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     request_barrels = []
     
     with db.engine.begin() as connection:
+        # barrels_inventory = connection.execute(sqlalchemy.text("""SELECT *
+        #                                                 FROM barrels_inventory""")).all()
+        
         result = connection.execute(sqlalchemy.text("""SELECT *
                                                     FROM global_inventory""")).one()
-    print(f"Inventory Gold: {result.gold}")
 
-    inventory_gold = result.gold
 
+        #get the barrel inventory 
+        red_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
+                                                            FROM barrels_ledger
+                                                            WHERE barrel_id = 1""")).one()
+
+        green_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
+                                                            FROM barrels_ledger
+                                                            WHERE barrel_id = 2""")).one()
+    
+        blue_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
+                                                            FROM barrels_ledger
+                                                            WHERE barrel_id = 3""")).one()
+    
+        dark_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
+                                                            FROM barrels_ledger
+                                                            WHERE barrel_id = 4""")).one()
+    #get the current gold inventory by summing up the balance
+        gold_result = connection.execute(sqlalchemy.text("""SELECT sum(gold) AS balance
+                                                            FROM gold_inventory""")).one()
+        
+        print(f"Inventory Gold: {gold_result.balance}")
+
+    inventory_gold = gold_result.balance
     #create a tuple of (potion_type, color_ml)
-    red_inventory = ("red", [100, 0 , 0, 0], result.num_red_ml)
-    green_inventory = ("green", [0, 100 , 0, 0], result.num_green_ml)
-    blue_inventory = ("blue", [0, 0 , 100, 0], result.num_blue_ml)
-    dark_inventory = ("dark", [0, 0 , 0, 100], result.num_dark_ml) #add in dark potion
+    red_inventory = ("red", [100, 0 , 0, 0], red_result.total_ml)
+    green_inventory = ("green", [0, 100 , 0, 0], green_result.total_ml)
+    blue_inventory = ("blue", [0, 0 , 100, 0], blue_result.total_ml)
+    dark_inventory = ("dark", [0, 0 , 0, 100], dark_result.total_ml) #add in dark potion
     priority = [red_inventory, green_inventory, blue_inventory, dark_inventory]
 
     #create a priority list based on which potions are least stocked

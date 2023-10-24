@@ -65,25 +65,67 @@ def get_bottle_plan():
     # Logic: bottle up the most of the potions we have the least.
     request_potions = []
     with db.engine.begin() as connection:
-        globals_result = connection.execute(sqlalchemy.text("SELECT *\
-                                                    FROM global_inventory")).one()
+        #get the barrel and gold inventory 
+        red_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
+                                                            FROM barrels_ledger
+                                                            WHERE barrel_id = 1""")).one()
+
+        green_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
+                                                            FROM barrels_ledger
+                                                            WHERE barrel_id = 2""")).one()
+    
+        blue_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
+                                                            FROM barrels_ledger
+                                                            WHERE barrel_id = 3""")).one()
+    
+        dark_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
+                                                            FROM barrels_ledger
+                                                            WHERE barrel_id = 4""")).one()
         
-        print(f"globals inventory: {globals_result}")
-        inventory_red_ml = globals_result.num_red_ml
-        inventory_green_ml = globals_result.num_green_ml
-        inventory_blue_ml = globals_result.num_blue_ml 
-        inventory_dark_ml = globals_result.num_dark_ml
+        # print(f"globals inventory: {globals_result}")
+        inventory_red_ml = red_result.total_ml
+        print(f"Red ml Inventory = {inventory_red_ml}")
+        inventory_green_ml = green_result.total_ml
+        print(f"Green ml Inventory = {inventory_green_ml}")
+        inventory_blue_ml = blue_result.total_ml
+        print(f"Blue ml Inventory = {inventory_blue_ml}")
+        inventory_dark_ml = dark_result.total_ml
+        print(f"Dark ml Inventory = {inventory_dark_ml}")
 
-        catalog_result = connection.execute(sqlalchemy.text("SELECT sku, quantity, red, green, blue, dark\
-                                                    FROM potion_catalog\
-                                                    ORDER BY quantity ASC")).all()
-        print(f"catalog result: {catalog_result}")
 
+
+        catalog_result = connection.execute(sqlalchemy.text("SELECT id\
+                                                            FROM potion_catalog")).all()
+        
+        #get potion quant of all potion types and store in array
+        potion_inventory = {}
         for potion in catalog_result:
+            # SUM to get the quant of the current potion
+            potion_quant_result = (connection.execute(sqlalchemy.text("""SELECT SUM(change) quantity
+                                                                        FROM potions_ledger
+                                                                        WHERE potion_id = :curr_potion_id"""), 
+                                                                        [{"curr_potion_id": potion.id}])).one()
+            
+            potion_inventory[potion.id] = potion_quant_result.quantity
+        
+    #print(f"potion inventory: {potion_inventory}")
+        #sort the quantity dictionary by ascending
+        sorted_catalog = sorted(potion_inventory, key= potion_inventory.get)
+        #only keys should be returned and in list form
+        print(f"sorted catalog: {sorted_catalog}")
+
+        for potion_id in sorted_catalog:
+            potion = (connection.execute(sqlalchemy.text("SELECT id, sku, red, green, blue, dark\
+                                                    FROM potion_catalog\
+                                                    WHERE id = :potion_id"), 
+                                                    [{"potion_id": potion_id}])).one()
+
+            
+
             if (potion.red > inventory_red_ml) or (potion.green > inventory_green_ml) or (potion.blue > inventory_blue_ml) or (potion.dark > inventory_dark_ml):
                 print(f"Tried to make {potion.sku}, but there was not enough inventory to make at least 1")
                 continue
-
+            
             #there is enough to make just 1 
             max_create = []
             if (potion.red > 0):
@@ -96,7 +138,7 @@ def get_bottle_plan():
                 max_create.append(inventory_dark_ml//potion.dark)
 
             #the most we can create is the amount we can handle OR max = 75
-            max_potions_inventory = 138 - potion.quantity
+            max_potions_inventory = 75 - potion.quantity
             max_create.append(max_potions_inventory)
             request_num = min(max_create)
 

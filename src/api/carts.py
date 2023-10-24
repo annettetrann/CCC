@@ -58,6 +58,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
         #                                                       FROM potion_catalog\
         #                                                       WHERE item_sku = :item_sku"), 
         #                                                       [{"item_sku": item_sku}]).one()
+
         insert_items_sql = """INSERT INTO cart_items (cart_id, potion_id, quantity, sku)
                             SELECT :cart_id, potion_catalog.id, :quantity, :item_sku
                             FROM potion_catalog WHERE potion_catalog.sku = :item_sku"""
@@ -98,33 +99,46 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         for item in cart_items:
             print(f"Item: {item}")
             #find the general potion id inventory
-            potion_info = connection.execute(sqlalchemy.text("""SELECT quantity, price
-                                                                FROM potion_catalog
-                                                                WHERE id = :potion_id"""), 
-                                                                [{"potion_id": item.potion_id}]).one()
-
+            
+            #get potion inventory
+            potion_quant = connection.execute(sqlalchemy.text("""SELECT sum(change) as quantity
+                                                FROM potions_ledger
+                                                WHERE potion_id = :potion_id"""),
+                                               [{"potion_id": item.potion_id}]).one()
+            # potion_info = connection.execute(sqlalchemy.text("""SELECT quantity, price
+            #                                                     FROM potion_catalog
+            #                                                     WHERE id = :potion_id"""), 
+            #                                                     [{"potion_id": item.potion_id}]).one()
+            
             #if the requested cart item's quantity is greater than our inventory, set inventory max
-            if item.quantity > potion_info.quantity:
+            if item.quantity > potion_quant.quantity:
                 connection.execute(sqlalchemy.text("""UPDATE cart_items
                                                     SET quantity = :inventory_quant
                                                     WHERE cart_id = :cart_id and potion_id = :potion_id"""), 
-                                                    [{"cart_id": cart_id, "potion_id": item.potion_id}])
-
-
+                                                    [{"cart_id": cart_id, "potion_id": item.potion_id,
+                                                      "inventory_quant": potion_quant.quantity}])
             #start checkout 
             #update gold, potions bought, checkout completed
 
-            #updating potions bought
-            connection.execute(sqlalchemy.text("""UPDATE potion_catalog
-                                                    SET quantity = quantity - :potions_bought
-                                                    WHERE id = :potion_id """), 
-                                                    [{"potion_id": item.potion_id, "potions_bought": item.quantity}])
+            price = connection.execute(sqlalchemy.text("""SELECT price
+                                                        FROM potion_catalog
+                                                        WHERE id = :potion_id"""), 
+                                                        [{"potion_id": item.potion_id}]).one()
+
+            #updating potions bought (-)
+            description = f"{cart_id} bought {item.quantity} {item.sku}"
+            connection.execute(sqlalchemy.text("""INSERT INTO potions_ledger (potion_id, change, description)
+                                                    VALUES (:potion_id, :change, :description)"""), 
+                                                    [{"potion_id": item.potion_id, "change": -item.quantity, "description": description}])
+            
             
             #update gold paid
-            gold_paid = potion_info.price * item.quantity
-            connection.execute(sqlalchemy.text("""UPDATE global_inventory
-                                                    SET gold = gold + :gold_paid"""), 
-                                                    [{"gold_paid": gold_paid}])
+            gold_paid = price.price * item.quantity
+            description = f"{cart_id} bought {item.quantity} {item.sku} for {gold_paid}"
+            connection.execute(sqlalchemy.text("""INSERT INTO gold_inventory (change, description)
+                                                    VALUES (:change, :description)"""), 
+                                                    [{"change": gold_paid, "description": description}])
+            
             
             #update checkout for item
             connection.execute(sqlalchemy.text("""UPDATE cart_items

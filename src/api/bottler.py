@@ -69,15 +69,6 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                                "dark_ml_used": -dark_ml_used, 
                                "barrel_description": barrel_description}])
         
-           
-        #update ml used in globals inventory
-        # sql_global = """UPDATE global_inventory
-        #                 SET num_red_ml = num_red_ml - :red_ml_used,
-        #                 num_green_ml = num_green_ml - :green_ml_used,
-        #                 num_blue_ml = num_blue_ml - :blue_ml_used,
-        #                 num_dark_ml = num_dark_ml - :dark_ml_used"""
-        # connection.execute(sqlalchemy.text(sql_global), 
-        #     [{"red_ml_used": red_ml_used, "green_ml_used": green_ml_used, "blue_ml_used": blue_ml_used, "dark_ml_used": dark_ml_used}])
     return "OK"
 
 # Gets called 4 times a day

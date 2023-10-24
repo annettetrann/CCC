@@ -23,55 +23,46 @@ class Barrel(BaseModel):
 def post_deliver_barrels(barrels_delivered: list[Barrel]):
     """ """
     print("BARREL DELIVERY: ")
+    
     #initalize all new values 
-    added_red_ml = 0
-    added_green_ml = 0
-    added_blue_ml = 0
-    added_dark_ml = 0
     gold_paid = 0
+    delivery_description = ''
+    ml_added = 0
 
-    for barrel in barrels_delivered:
-        print(f'Barrels Delivered: {barrel}')
-        print(f'Puchased {barrel.quantity} of {barrel.sku}({barrel.ml_per_barrel}ml)')
-
-        gold_paid += barrel.quantity*barrel.price
-
-        if (barrel.potion_type == [1, 0, 0, 0]): #red
-            added_red_ml += barrel.quantity*barrel.ml_per_barrel
-            print(f'Adding {added_red_ml}ml of red')
-        elif (barrel.potion_type == [0, 1, 0, 0]): #green
-            added_green_ml += barrel.quantity*barrel.ml_per_barrel
-            print(f'Adding {added_green_ml}ml of green')
-        elif (barrel.potion_type == [0, 0, 1, 0]): #blue
-            added_blue_ml += barrel.quantity*barrel.ml_per_barrel
-            print(f'Adding {added_blue_ml}ml of blue')
-        elif(barrel.potion_type == [0, 0, 0, 1]): #dark
-            added_dark_ml += barrel.quantity*barrel.ml_per_barrel
-            print(f'Adding {added_dark_ml}ml of dark')
-        else:
-            raise Exception("Invalid Potion Type")
-    
-    #print the total of newly added liquids 
-    print(f"Barrel Delivery Summary:\
-          Added Red ml : {added_red_ml},\
-          Added Green ml : {added_green_ml},\
-          Added Blue ml : {added_blue_ml},\
-          Added Dark ml : {added_dark_ml},\
-          Gold Paid : {gold_paid}")
-    
-    #update database
     with db.engine.begin() as connection:
-        update_sql = """UPDATE global_inventory
-                        SET num_red_ml = num_red_ml + :added_red_ml,
-                        num_green_ml = num_green_ml + :added_green_ml,
-                        num_blue_ml = num_blue_ml + :added_blue_ml,
-                        num_dark_ml = num_dark_ml + :added_dark_ml,
-                        gold = gold - :gold_paid"""
-    
-        connection.execute(sqlalchemy.text(update_sql), 
-            [{"added_red_ml": added_red_ml, "added_green_ml": added_green_ml, "added_blue_ml": added_blue_ml, "added_dark_ml": added_dark_ml, "gold_paid": gold_paid}])
+        for barrel in barrels_delivered:
+            print(f'Barrels Delivered: {barrel}')
+            print(f'Puchased {barrel.quantity} of {barrel.sku}({barrel.ml_per_barrel}ml)')
+            
+            gold_paid = (barrel.quantity*barrel.price)*-1
+            ml_added = barrel.quantity*barrel.ml_per_barrel
+            delivery_description = f'barrel delivery | {barrel.quantity} {barrel.sku} | {barrel.ml_per_barrel} ml'
 
+            if (barrel.potion_type == [1, 0, 0, 0]): #red
+                update_barrel = """INSERT INTO barrels_ledger (barrel_id, description, change)
+                            VALUES (1, :delivery_description, :barrel_ml)"""
+            elif (barrel.potion_type == [0, 1, 0, 0]): #green
+                update_barrel = """INSERT INTO barrels_ledger (barrel_id, description, change)
+                            VALUES (2, :delivery_description, :barrel_ml)"""
+            elif (barrel.potion_type == [0, 0, 1, 0]): #blue
+                update_barrel = """INSERT INTO barrels_ledger (barrel_id, description, change)
+                            VALUES (3, :delivery_description, :barrel_ml)"""
+            elif(barrel.potion_type == [0, 0, 0, 1]): #dark
+                update_barrel = """INSERT INTO barrels_ledger (barrel_id, description, change)
+                            VALUES (4, :delivery_description, :barrel_ml)"""
+            else:
+                raise Exception("Invalid Potion Type")
+                continue
 
+            #update barrel inventory
+            connection.execute(sqlalchemy.text(update_barrel), 
+                    [{"delivery_description": delivery_description, "barrel_ml": ml_added}])
+            
+            # update gold 
+            connection.execute(sqlalchemy.text("""INSERT INTO gold_inventory (change, description)
+                                                VALUES (:gold_paid, :description)"""),
+                                                [{"gold_paid": gold_paid, "description": delivery_description}])
+        
     return "OK"
 
 # Gets called once a day
@@ -88,13 +79,6 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     request_barrels = []
     
     with db.engine.begin() as connection:
-        # barrels_inventory = connection.execute(sqlalchemy.text("""SELECT *
-        #                                                 FROM barrels_inventory""")).all()
-        
-        result = connection.execute(sqlalchemy.text("""SELECT *
-                                                    FROM global_inventory""")).one()
-
-
         #get the barrel inventory 
         red_result = connection.execute(sqlalchemy.text("""SELECT sum(change) as total_ml
                                                             FROM barrels_ledger

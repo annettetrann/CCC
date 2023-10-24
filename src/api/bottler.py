@@ -38,20 +38,46 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
             blue_ml_used += (b*potion.quantity)
             dark_ml_used += (d*potion.quantity)
 
-            sql_potions = """UPDATE potion_catalog
-                            SET quantity = quantity + :quant
-                            WHERE red = :r and green = :g and blue = :b and dark = :d"""
-            connection.execute(sqlalchemy.text(sql_potions), 
-                    [{"quant": potion.quantity, "r": r, "g": g, "b": b, "d": d}])
+            #update potion count (+)
+            
+            #get potion id of matching potion based on rgb values 
+            potion_info = (connection.execute(sqlalchemy.text("""SELECT id
+                            FROM potion_catalog
+                            WHERE red = :r and green = :g and blue = :b and dark = :d"""), 
+                    [{"quant": potion.quantity, "r": r, "g": g, "b": b, "d": d}])).one()
+
+            #update potions ledger 
+            description = "bottle delivery"
+            potions_ledger = """INSERT INTO potions_ledger (potion_id, change, description)
+                            VALUES (:potion_id, :added_potions, :description)"""
+            connection.execute(sqlalchemy.text(potions_ledger),
+                             [{"potion_id": potion_info.id, "added_potions": potion.quantity, "description": description}])
             print(f"Bottle Delivery: {potion.quantity} {potion.potion_type}")
+
+        #update mls in barrels (-)
+        barrel_description = "bottled potions"
+        barrel_ml_update = """INSERT INTO barrels_ledger (barrel_id, change, description)
+                        VALUES 
+                        (1, :red_ml_used, :barrel_description),
+                        (2, :green_ml_used, :barrel_description),
+                        (3, :blue_ml_used, :barrel_description),
+                        (4, :dark_ml_used, :barrel_description)"""
+        connection.execute(sqlalchemy.text(barrel_ml_update),
+                             [{"red_ml_used": -red_ml_used,
+                               "green_ml_used": -green_ml_used,
+                               "blue_ml_used": -blue_ml_used,
+                               "dark_ml_used": -dark_ml_used, 
+                               "barrel_description": barrel_description}])
+        
+           
         #update ml used in globals inventory
-        sql_global = """UPDATE global_inventory
-                        SET num_red_ml = num_red_ml - :red_ml_used,
-                        num_green_ml = num_green_ml - :green_ml_used,
-                        num_blue_ml = num_blue_ml - :blue_ml_used,
-                        num_dark_ml = num_dark_ml - :dark_ml_used"""
-        connection.execute(sqlalchemy.text(sql_global), 
-            [{"red_ml_used": red_ml_used, "green_ml_used": green_ml_used, "blue_ml_used": blue_ml_used, "dark_ml_used": dark_ml_used}])
+        # sql_global = """UPDATE global_inventory
+        #                 SET num_red_ml = num_red_ml - :red_ml_used,
+        #                 num_green_ml = num_green_ml - :green_ml_used,
+        #                 num_blue_ml = num_blue_ml - :blue_ml_used,
+        #                 num_dark_ml = num_dark_ml - :dark_ml_used"""
+        # connection.execute(sqlalchemy.text(sql_global), 
+        #     [{"red_ml_used": red_ml_used, "green_ml_used": green_ml_used, "blue_ml_used": blue_ml_used, "dark_ml_used": dark_ml_used}])
     return "OK"
 
 # Gets called 4 times a day

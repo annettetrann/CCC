@@ -96,7 +96,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                                                             FROM barrels_ledger
                                                             WHERE barrel_id = 4""")).one()
     #get the current gold inventory by summing up the balance
-        gold_result = connection.execute(sqlalchemy.text("""SELECT sum(gold) AS balance
+        gold_result = connection.execute(sqlalchemy.text("""SELECT sum(change) AS balance
                                                             FROM gold_inventory""")).one()
         
         print(f"Inventory Gold: {gold_result.balance}")

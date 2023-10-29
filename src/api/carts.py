@@ -137,7 +137,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             description = f"{cart_id} bought {item.quantity} {item.sku} for {gold_paid}"
             connection.execute(sqlalchemy.text("""INSERT INTO gold_inventory (change, description)
                                                     VALUES (:change, :description)"""), 
-                                                    [{"change": gold_paid, "description": description}])
+                                                    [{"change": -gold_paid, "description": description}])
             
             
             #update checkout for item

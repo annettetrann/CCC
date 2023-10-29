@@ -12,9 +12,14 @@ def get_catalog():
     """
     #get updated catalog
     catalog = []
+
+    potion_get = """SELECT SUM(potions_ledger.change) as quantity, potion_catalog.name, potion_catalog.price, potion_catalog.sku, potion_catalog.red, potion_catalog.green, potion_catalog.blue, potion_catalog.dark
+                    FROM potions_ledger
+                    FULL JOIN potion_catalog ON potions_ledger.potion_id=potion_catalog.id
+                    GROUP BY potion_id, potion_catalog.sku, potion_catalog.name, potion_catalog.price, potion_catalog.red, potion_catalog.green, potion_catalog.blue, potion_catalog.dark
+                """
     with db.engine.begin() as connection:
-        catalog_result = connection.execute(sqlalchemy.text("SELECT *\
-                                                        FROM potion_catalog")).all()
+        catalog_result = connection.execute(sqlalchemy.text(potion_get)).all()
         for potion in catalog_result:
             if potion.quantity > 0:
                 catalog.append(

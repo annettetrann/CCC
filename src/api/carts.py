@@ -3,12 +3,71 @@ from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
 from src import database as db
+from enum import Enum
 
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],
     dependencies=[Depends(auth.get_api_key)],
 )
+
+class search_sort_options(str, Enum):
+    customer_name = "customer_name"
+    item_sku = "item_sku"
+    line_item_total = "line_item_total"
+    timestamp = "timestamp"
+
+class search_sort_order(str, Enum):
+    asc = "asc"
+    desc = "desc"   
+
+@router.get("/search/", tags=["search"])
+def search_orders(
+    customer_name: str = "",
+    potion_sku: str = "",
+    search_page: str = "",
+    sort_col: search_sort_options = search_sort_options.timestamp,
+    sort_order: search_sort_order = search_sort_order.desc,
+):
+    """
+    Search for cart line items by customer name and/or potion sku.
+
+    Customer name and potion sku filter to orders that contain the 
+    string (case insensitive). If the filters aren't provided, no
+    filtering occurs on the respective search term.
+
+    Search page is a cursor for pagination. The response to this
+    search endpoint will return previous or next if there is a
+    previous or next page of results available. The token passed
+    in that search response can be passed in the next search request
+    as search page to get that page of results.
+
+    Sort col is which column to sort by and sort order is the direction
+    of the search. They default to searching by timestamp of the order
+    in descending order.
+
+    The response itself contains a previous and next page token (if
+    such pages exist) and the results as an array of line items. Each
+    line item contains the line item id (must be unique), item sku, 
+    customer name, line item total (in gold), and timestamp of the order.
+    Your results must be paginated, the max results you can return at any
+    time is 5 total line items.
+    """
+
+    return {
+        "previous": "",
+        "next": "",
+        "results": [
+            {
+                "line_item_id": 1,
+                "item_sku": "1 oblivion potion",
+                "customer_name": "Scaramouche",
+                "line_item_total": 50,
+                "timestamp": "2021-01-01T00:00:00Z",
+            }
+        ],
+    }
+
 
 
 class NewCart(BaseModel):
@@ -54,11 +113,6 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
 
     print("Setting Item Quantity...")
     with db.engine.begin() as connection:
-        # potion_inventory = connection.execute(sqlalchemy.text("SELECT * \
-        #                                                       FROM potion_catalog\
-        #                                                       WHERE item_sku = :item_sku"), 
-        #                                                       [{"item_sku": item_sku}]).one()
-
         insert_items_sql = """INSERT INTO cart_items (cart_id, potion_id, quantity, sku)
                             SELECT :cart_id, potion_catalog.id, :quantity, :item_sku
                             FROM potion_catalog WHERE potion_catalog.sku = :item_sku"""
@@ -67,14 +121,6 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
         connection.execute(sqlalchemy.text(insert_items_sql), 
                            [{"cart_id": cart_id, "quantity": cart_item.quantity, "item_sku": item_sku}])
 
-        # potion_info = connection.execute(sqlalchemy.text("""SELECT id
-        #                                                     FROM potion_catalog
-        #                                                     WHERE sku = :item_sku"""), 
-        #                                                     [{"item_sku": item_sku}]).one()
-
-        # connection.execute(sqlalchemy.text("""INSERT INTO cart_items (cart_id, potion_id, quantity, sku)
-        #                                     VALUES( :cart_id, :potion_id, :quantity, :sku)"""),
-        #                                     [{"cart_id": cart_id, "potion_id": potion_info.id, "quantity": cart_item.quantity, "sku": item_sku}])
 
     print(f"Successfully added {cart_item.quantity} {item_sku} for Cart {cart_id}")
     return "OK"
@@ -105,12 +151,6 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                                                 FROM potions_ledger
                                                 WHERE potion_id = :potion_id"""),
                                                [{"potion_id": item.potion_id}]).one()
-            # potion_info = connection.execute(sqlalchemy.text("""SELECT quantity, price
-            #                                                     FROM potion_catalog
-            #                                                     WHERE id = :potion_id"""), 
-            #                                                     [{"potion_id": item.potion_id}]).one()
-            
-            #if the requested cart item's quantity is greater than our inventory, set inventory max
             if item.quantity > potion_quant.quantity:
                 connection.execute(sqlalchemy.text("""UPDATE cart_items
                                                     SET quantity = :inventory_quant
@@ -137,7 +177,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             description = f"{cart_id} bought {item.quantity} {item.sku} for {gold_paid}"
             connection.execute(sqlalchemy.text("""INSERT INTO gold_inventory (change, description)
                                                     VALUES (:change, :description)"""), 
-                                                    [{"change": -gold_paid, "description": description}])
+                                                    [{"change": gold_paid, "description": description}])
             
             
             #update checkout for item

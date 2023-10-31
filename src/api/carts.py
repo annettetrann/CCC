@@ -4,6 +4,7 @@ from src.api import auth
 import sqlalchemy
 from src import database as db
 from enum import Enum
+import json
 
 router = APIRouter(
     prefix="/carts",
@@ -16,19 +17,12 @@ class search_sort_options(str, Enum):
     item_sku = "item_sku"
     line_item_total = "line_item_total"
     timestamp = "timestamp"
-
+ 
 class search_sort_order(str, Enum):
     asc = "asc"
     desc = "desc"   
 
-@router.get("/search/", tags=["search"])
-def search_orders(
-    customer_name: str = "",
-    potion_sku: str = "",
-    search_page: str = "",
-    sort_col: search_sort_options = search_sort_options.timestamp,
-    sort_order: search_sort_order = search_sort_order.desc,
-):
+
     """
     Search for cart line items by customer name and/or potion sku.
 
@@ -54,18 +48,68 @@ def search_orders(
     time is 5 total line items.
     """
 
+@router.get("/search/", tags=["search"])
+def search_orders(
+    customer_name: str = "",
+    potion_sku: str = "",
+    search_page: str = "",
+    sort_col: search_sort_options = search_sort_options.timestamp,
+    sort_order: search_sort_order = search_sort_order.desc,
+):
+    #only customer_id is in the cart_items, would I have to join the two tables first? yes
+    if sort_col is search_sort_options.customer_name:
+        sort_by = db.carts.c.customer_name
+    elif sort_col is search_sort_options.item_sku:
+        sort_by = db.cart_items.c.sku
+    else:
+        assert False
+    
+    #the db sorts by asc by default, if sort_order is desc explicitly order
+    if sort_order is search_sort_order.desc:
+        sort_by = sqlalchemy.desc(sort_by)
+
+    sql =   (
+                sqlalchemy.select(
+                db.cart_items.c.id,
+                db.cart_items.c.sku,
+                db.cart_items.c.cart_id,
+                db.cart_items.c.change,
+                db.cart_items.c.created_at,
+                db.carts.c.customer_name
+            )
+            .join(db.carts, db.carts.c.cart_id == db.cart_items.c.cart_id)
+            .offset(int(search_page)*5)
+            .limit(5)
+            .order_by(sort_by, db.cart_items.c.cart_id)
+    )
+
+    #filter only if customer name is passed
+    if customer_name != "":
+        sql = sql.where(db.carts.c.customer_name.ilike(f"%{customer_name}"))
+    
+    #filter only if potion's sku is passed
+    if potion_sku != "":
+        sql = sql.where(db.cart_items.c.sku.ilike(f"%{potion_sku}"))
+    
+    #populate thr 5 results sql returns
+    json = []
+    with db.engine.connect() as conn:
+        result = conn.execute(sql)
+        for row in result:
+            json.append(
+                {
+                    "line_item_id": row.id,
+                    "item_sku": row.sku,
+                    "customer_name": row.customer_name,
+                    "line_item_total": row.change,
+                    "timestamp": row.created_at
+                }
+            )
+
     return {
         "previous": "",
-        "next": "",
-        "results": [
-            {
-                "line_item_id": 1,
-                "item_sku": "1 oblivion potion",
-                "customer_name": "Scaramouche",
-                "line_item_total": 50,
-                "timestamp": "2021-01-01T00:00:00Z",
-            }
-        ],
+        "next": "5",
+        "results": json
     }
 
 
@@ -73,15 +117,10 @@ def search_orders(
 class NewCart(BaseModel):
     customer: str
 
-# cart_id = 0
-# carts = {}
 
 @router.post("/")
 def create_cart(new_cart: NewCart):
     """ """
-    # global cart_id
-    # global carts
-    # cart_id += 1
     new_cart_sql = """INSERT INTO carts 
                         (customer_name)
                         VALUES (:name)
@@ -113,13 +152,27 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
 
     print("Setting Item Quantity...")
     with db.engine.begin() as connection:
-        insert_items_sql = """INSERT INTO cart_items (cart_id, potion_id, quantity, sku)
-                            SELECT :cart_id, potion_catalog.id, :quantity, :item_sku
-                            FROM potion_catalog WHERE potion_catalog.sku = :item_sku"""
+        #find corresponding potion_id
+        find_pID_sql= """SELECT id, price
+                        FROM potion_catalog
+                        WHERE sku = :item_sku"""
+        
+        potion_id_result = connection.execute(sqlalchemy.text(find_pID_sql), 
+                           [{"item_sku": item_sku}]).one()
+        
+
+        total_cost = potion_id_result.price*cart_item.quantity
+
+        insert_items_sql = """INSERT INTO cart_items (cart_id, potion_id, quantity, sku, change)
+                            VALUES (:cart_id, :pID, :quantity, :item_sku, :change)"""
         
 
         connection.execute(sqlalchemy.text(insert_items_sql), 
-                           [{"cart_id": cart_id, "quantity": cart_item.quantity, "item_sku": item_sku}])
+                           [{"cart_id": cart_id, 
+                             "pID": potion_id_result.id,
+                             "quantity": cart_item.quantity, 
+                             "item_sku": item_sku,
+                             "change": total_cost}])
 
 
     print(f"Successfully added {cart_item.quantity} {item_sku} for Cart {cart_id}")

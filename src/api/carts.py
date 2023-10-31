@@ -78,7 +78,7 @@ def search_orders(
                 db.carts.c.customer_name
             )
             .join(db.carts, db.carts.c.cart_id == db.cart_items.c.cart_id)
-            .offset(int(search_page)*5)
+            .offset((int(search_page)-1)*5)
             .limit(5)
             .order_by(sort_by, db.cart_items.c.cart_id)
     )
@@ -105,10 +105,17 @@ def search_orders(
                     "timestamp": row.created_at
                 }
             )
+    print(json)
+
+    if int(search_page) > 1:
+        previous = 5*(int(search_page)-1)
+    else:
+        previous = 0
+
 
     return {
-        "previous": "",
-        "next": "5",
+        "previous": previous,
+        "next": (int(search_page)* 5),
         "results": json
     }
 

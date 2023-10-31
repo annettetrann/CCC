@@ -143,7 +143,7 @@ def balance_requests(current_priority, select_catalog, inventory_gold):
     request_quantity = 0
     total_request_ml = 0
     current_ml_in_barrel = current_priority[2]
-    max_inventory_ml = 5000 - current_ml_in_barrel
+    max_inventory_ml = 1000 - current_ml_in_barrel
     for barrel in select_catalog:
         #usually first items are largest available to smallest
         safe_request = []

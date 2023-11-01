@@ -56,11 +56,15 @@ def search_orders(
     sort_col: search_sort_options = search_sort_options.timestamp,
     sort_order: search_sort_order = search_sort_order.desc,
 ):
-    #only customer_id is in the cart_items, would I have to join the two tables first? yes
+    
     if sort_col is search_sort_options.customer_name:
         sort_by = db.carts.c.customer_name
     elif sort_col is search_sort_options.item_sku:
         sort_by = db.cart_items.c.sku
+    elif sort_col is search_sort_options.line_item_total:
+        sort_by = db.cart_items.c.change
+    elif sort_col is search_sort_options.timestamp:
+        sort_by = db.cart_items.c.created_at
     else:
         assert False
     

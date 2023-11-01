@@ -52,7 +52,7 @@ class search_sort_order(str, Enum):
 def search_orders(
     customer_name: str = "",
     potion_sku: str = "",
-    search_page: str = "1",
+    search_page: str = "0",
     sort_col: search_sort_options = search_sort_options.timestamp,
     sort_order: search_sort_order = search_sort_order.desc,
 ):
@@ -78,7 +78,7 @@ def search_orders(
                 db.carts.c.customer_name
             )
             .join(db.carts, db.carts.c.cart_id == db.cart_items.c.cart_id)
-            .offset((int(search_page)-1)*5)
+            .offset((int(search_page))*5)
             .limit(5)
             .order_by(sort_by, db.cart_items.c.cart_id)
     )
@@ -107,15 +107,11 @@ def search_orders(
             )
     print(json)
 
-    previous = 0
-    if int(search_page) > 1:
-        previous = 5*(int(search_page)-1)
-    
-
+    previous = 5*(int(search_page))
 
     return {
         "previous": previous,
-        "next": (int(search_page)* 5),
+        "next": ((int(search_page)+1)* 5),
         "results": json
     }
 

@@ -110,11 +110,14 @@ def search_orders(
                 }
             )
     print(json)
+    
+    prev = 0
+    if (search_page > 0):
+        prev = 5*(int(search_page)-1)
 
-    previous = 5*(int(search_page))
 
     return {
-        "previous": previous,
+        "previous": prev,
         "next": ((int(search_page)+1)* 5),
         "results": json
     }

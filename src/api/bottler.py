@@ -125,13 +125,26 @@ def get_bottle_plan():
             
             potion_inventory[potion.id] = potion_quant_result.quantity
         
-    #print(f"potion inventory: {potion_inventory}")
+
+        total_potions = (connection.execute(sqlalchemy.text("""SELECT SUM(change) quant
+                                                            FROM potions_ledger"""))).one()
+        
+        #print(f"total potion inventory: {total_potions.quant}")
+
+
+        #the total we can make currently is
+        print(f"total we can request: {300-total_potions.quant}")
+        create_availability = 300-total_potions.quant
+
+
         #sort the quantity dictionary by ascending
-        sorted_catalog = sorted(potion_inventory, key= potion_inventory.get)
+        sorted_catalog = sorted(potion_inventory, key=potion_inventory.get)
+
         #only keys should be returned and in list form
         print(f"sorted catalog: {sorted_catalog}")
 
         for potion_id in sorted_catalog:
+            #print(f'Current Potion: {potion_id} with {potion_inventory.get(potion_id)} bottles in inventory')
             potion = (connection.execute(sqlalchemy.text("SELECT id, sku, red, green, blue, dark\
                                                     FROM potion_catalog\
                                                     WHERE id = :potion_id"), 
@@ -143,6 +156,11 @@ def get_bottle_plan():
                 print(f"Tried to make {potion.sku}, but there was not enough inventory to make at least 1")
                 continue
             
+
+            if (create_availability == 0):
+                print('Reached the maximum bottle capacity request.')
+                continue
+
             #there is enough to make just 1 
             max_create = []
             if (potion.red > 0):
@@ -155,9 +173,18 @@ def get_bottle_plan():
                 max_create.append(inventory_dark_ml//potion.dark)
 
             #the most we can create is the amount we can handle OR max = 75
-            #max_potions_inventory = 75 - potion.quantity
-            #max_create.append(max_potions_inventory)
+            max_potions_inventory = 75 - potion_inventory.get(potion_id)
+            max_create.append(max_potions_inventory)
             request_num = min(max_create)
+
+            #if the requested number is greater than capcity to create, 
+            #create as many as we can and set create_availability to 0
+            if (request_num > create_availability):
+                request_num = create_availability
+                create_availability = 0
+            else:
+                create_availability = create_availability - request_num
+
 
             if request_num > 0:
                 if potion.red > 0:
